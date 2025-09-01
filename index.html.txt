@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Калькулятор стоимости 3D‑визуализации</title>
+<style>
+:root{--bg:#0e1117;--card:#161b22;--muted:#9ba3af;--panel:#1c2128;--accent:#58a6ff;--ok:#2ea043;--danger:#f85149;--radius:12px;}
+*{box-sizing:border-box}
+body{font-family:Inter,Arial,system-ui;margin:0;padding:20px;background:var(--bg);color:#e6eef6}
+h1{text-align:center;margin:0 0 18px}
+.container{max-width:720px;margin:0 auto;background:var(--card);border-radius:16px;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,.7);}
+.controls{display:flex;gap:10px;margin-bottom:14px}
+.controls button{padding:10px 14px;border-radius:10px;border:none;cursor:pointer;background:#1f6feb;color:white;transition:transform .12s ease}
+.controls button:hover{transform:translateY(-2px)}
+.controls .danger{background:var(--danger)}
+.room{background:var(--panel);border:1px solid #28313a;border-radius:var(--radius);padding:12px;margin-bottom:12px;opacity:0;transform:translateY(8px);transition:all .28s cubic-bezier(.2,.9,.3,1)}
+.room.show{opacity:1;transform:none}
+.step{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:10px;background:#14181d;border:1px solid #232a30;margin-bottom:8px}
+.step-left{display:flex;align-items:center;gap:12px}
+.step-num{width:34px;height:34px;border-radius:8px;background:#0b1220;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700}
+.step-title{font-size:13px;color:var(--muted)}
+.step-control{min-width:140px;display:flex;align-items:center;justify-content:flex-end;gap:8px}
+select{width:100%;padding:8px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:inherit;appearance:none;cursor:pointer}
+select:focus{outline:none;box-shadow:0 0 6px rgba(88,166,255,.12);border-color:var(--accent)}
+input[type="number"]{width:84px;padding:6px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:inherit;text-align:center}
+input[type="number"]:focus{outline:none;box-shadow:0 0 6px rgba(88,166,255,.12);border-color:var(--accent)}
+.radio-row{display:flex;gap:8px;align-items:center}
+.radio-row label{background:#111417;padding:6px 9px;border-radius:8px;border:1px solid transparent;cursor:pointer}
+.radio-row input{margin-right:8px}
+.radio-row label:hover{border-color:#323a42}
+.meta{display:flex;gap:12px;align-items:center;color:var(--muted);font-size:13px;margin-top:8px}
+.total{margin-top:14px;padding:12px;border-radius:12px;background:#11151a;border:1px solid #23282d}
+.total h3{margin:0 0 6px}
+.remove-room{background:transparent;border:1px solid #2f353b;color:var(--muted);padding:6px 10px;border-radius:10px;cursor:pointer}
+.remove-room:hover{background:#24181a}
+@media(max-width:520px){.step{flex-direction:column;align-items:flex-start}.step-control{width:100%;justify-content:flex-start}input[type="number"]{width:74px}}
+</style>
+</head>
+<body>
+<h1>Калькулятор стоимости 3D‑визуализации</h1>
+<div class="container">
+  <div class="controls">
+    <button id="addRoom">+ Добавить помещение</button>
+    <button id="resetAll" class="danger">Сбросить всё</button>
+  </div>
+  <div id="rooms" aria-live="polite"></div>
+  <div class="total">
+    <h3>Итог: <span id="grandTotal">0 ₽</span></h3>
+    <div class="meta">
+      <div>Помещений: <strong id="roomCount">0</strong></div>
+      <div>Площадь (мин. 10 м²): <strong id="sumArea">0</strong> м²</div>
+    </div>
+  </div>
+</div>
+
+<template id="roomTemplate">
+<div class="room" role="group" aria-label="помещение">
+  <div class="step">
+    <div class="step-left"><div class="step-num">1</div><div class="step-title">Выберите помещение</div></div>
+    <div class="step-control"><select class="room-name" aria-label="выбрать помещение">
+      <option value="Спальня">Спальня</option>
+      <option value="Кухня">Кухня</option>
+      <option value="Прихожая">Прихожая</option>
+      <option value="Санузел">Санузел</option>
+      <option value="Гостиная">Гостиная</option>
+      <option value="Кухня-гостиная">Кухня‑гостиная</option>
+      <option value="Детская">Детская</option>
+      <option value="Ванная">Ванная</option>
+      <option value="Гардеробная">Гардеробная</option>
+      <option value="Кабинет">Кабинет</option>
+      <option value="Балкон">Балкон</option>
+    </select></div>
+  </div>
+
+  <div class="step">
+    <div class="step-left"><div class="step-num">2</div><div class="step-title">Площадь, м² (мин 10)</div></div>
+    <div class="step-control"><input type="number" class="room-area" value="10" min="1" max="9999" step="0.1" aria-label="площадь"></div>
+  </div>
+
+  <div class="step">
+    <div class="step-left"><div class="step-num">3</div><div class="step-title">Высота потолка, мм</div></div>
+    <div class="step-control"><input type="number" class="room-height" value="2850" min="2000" max="9999" step="10" aria-label="высота потолка"></div>
+  </div>
+
+  <div class="step">
+    <div class="step-left"><div class="step-num">4</div><div class="step-title">Количество правок (1 бесплатно)</div></div>
+    <div class="step-control"><input type="number" class="room-iterations" value="1" min="1" max="99" step="1" aria-label="количество правок"></div>
+  </div>
+
+  <div class="step">
+    <div class="step-left"><div class="step-num">5</div><div class="step-title">Финальные рендеры</div></div>
+    <div class="step-control radio-row">
+      <label><input type="radio" name="renders" value="yes" checked> Да</label>
+      <label><input type="radio" name="renders" value="no"> Нет (−10%)</label>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-left"><div class="step-num">6</div><div class="step-title">Стилистика</div></div>
+    <div class="step-control radio-row">
+      <label><input type="radio" name="style" value="modern" checked> Современные</label>
+      <label><input type="radio" name="style" value="classic"> Классика (+20%)</label>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-left"><div class="step-num">7</div><div class="step-title">Есть лестницы?</div></div>
+    <div class="step-control radio-row">
+      <label><input type="radio" name="stairs" value="no" checked> Нет</label>
+      <label><input type="radio" name="stairs" value="yes"> Да (коэф. ×1.5)</label>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:8px">
+    <button class="remove-room">Удалить</button>
+  </div>
+</div>
+</template>
+
+<script>
+const STATE={base:770};
+const fmt=n=>new Intl.NumberFormat('ru-RU').format(Math.round(n))+' ₽';
+const roomsWrap=document.getElementById('rooms');
+const tpl=document.getElementById('roomTemplate');
+const addBtn=document.getElementById('addRoom');
+const resetBtn=document.getElementById('resetAll');
+const grandTotalEl=document.getElementById('grandTotal');
+const roomCountEl=document.getElementById('roomCount');
+const sumAreaEl=document.getElementById('sumArea');
+let roomIndex=0;
+
+function createRoom(presetName){
+    roomIndex++;
+    const node=tpl.content.firstElementChild.cloneNode(true);
+    node.dataset.index=roomIndex;
+    node.querySelectorAll('input[type="radio"]').forEach(input=>{
+        const base=input.name||input.getAttribute('name')||'grp';
+        input.name=`${base}-${roomIndex}`;
+    });
+    if(presetName) node.querySelector('.room-name').value=presetName;
+    bindRoom(node);
+    roomsWrap.appendChild(node);
+    requestAnimationFrame(()=>node.classList.add('show'));
+    node.querySelector('.room-name').focus();
+    calc();
+    return node;
+}
+
+function bindRoom(row){
+    const inputs=row.querySelectorAll('input, select');
+    inputs.forEach(el=>el.addEventListener('input',calc));
+    row.querySelector('.remove-room').addEventListener('click',()=>{
+        row.classList.remove('show');
+        row.style.opacity='0';
+        row.style.transform='translateY(8px)';
+        setTimeout(()=>{row.remove();calc();},280);
+    });
+}
+
+function calc(){
+    const roomNodes=Array.from(document.querySelectorAll('.room'));
+    let total=0,sumArea=0;
+    roomNodes.forEach(row=>{
+        const idx=row.dataset.index;
+        const area=Math.max(10,parseFloat(row.querySelector('.room-area').value)||10);
+        sumArea+=area;
+        const style=row.querySelector(`input[name="style-${idx}"]:checked`)?.value||'modern';
+        const renders=row.querySelector(`input[name="renders-${idx}"]:checked`)?.value||'yes';
+        const stairs=row.querySelector(`input[name="stairs-${idx}"]:checked`)?.value||'no';
+        const height=parseFloat(row.querySelector('.room-height').value)||2850;
+        const iterations=Math.max(1,parseInt(row.querySelector('.room-iterations').value)||1);
+        let cost=area*STATE.base;
+        const kStyle=style==='classic'?1.2:1;
+        const kRenders=renders==='no'?0.9:1;
+        const kHeight=(height>=3300||stairs==='yes')?1.5:1;
+        const extraIterations=Math.max(0,iterations-1);
+        cost=cost*kStyle*kRenders*kHeight;
+        cost+=cost*0.3*extraIterations;
+        total+=cost;
+    });
+    grandTotalEl.textContent=fmt(total);
+    roomCountEl.textContent=roomNodes.length;
+    sumAreaEl.textContent=sumArea;
+}
+
+addBtn.addEventListener('click',()=>createRoom());
+resetBtn.addEventListener('click',()=>{
+    roomsWrap.innerHTML='';
+    roomIndex=0;
+    createRoom('Спальня');
+    calc();
+});
+createRoom('Спальня');
+</script>
+</body>
+</html>
